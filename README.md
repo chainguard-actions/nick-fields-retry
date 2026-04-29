@@ -1,5 +1,7 @@
 # nick-fields/retry
 
+Retries a GitHub Action step on failure or timeout
+
 Hardened by [Chainguard](https://www.chainguard.dev) from the upstream action at [https://github.com/nick-fields/retry](https://github.com/nick-fields/retry).
 
 ## Versions

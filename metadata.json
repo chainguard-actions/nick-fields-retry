@@ -1,5 +1,6 @@
 {
   "owner": "nick-fields",
   "name": "retry",
-  "visibility": ""
+  "visibility": "internal",
+  "description": "Retries a GitHub Action step on failure or timeout"
 }
