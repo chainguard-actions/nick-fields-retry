@@ -1,7 +1,0 @@
-{
-  "owner": "nick-fields",
-  "name": "retry",
-  "visibility": "internal",
-  "description": "Retries a GitHub Action step on failure or timeout",
-  "block_publish": false
-}
