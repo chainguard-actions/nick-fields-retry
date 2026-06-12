@@ -1,0 +1,41 @@
+name: Test retry_on and on_retry_command inputs
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Create attempt counter file
+        run: echo "0" > /tmp/attempt_count.txt
+      - id: action
+        uses: .
+        with:
+          command: |
+            COUNT=$(cat /tmp/attempt_count.txt)
+            COUNT=$((COUNT + 1))
+            echo "$COUNT" > /tmp/attempt_count.txt
+            if [ "$COUNT" -lt 2 ]; then
+              exit 1
+            fi
+            echo "success on attempt $COUNT"
+          max_attempts: 3
+          retry_on: error
+          on_retry_command: echo "running on_retry_command cleanup"
+          retry_wait_seconds: 1
+      - name: Assert retried and succeeded
+        env:
+          TOTAL: ${{ steps.action.outputs.total_attempts }}
+          EXIT_CODE: ${{ steps.action.outputs.exit_code }}
+        run: |
+          echo "total_attempts: $TOTAL"
+          echo "exit_code: $EXIT_CODE"
+          if [ "$EXIT_CODE" != "0" ]; then
+            echo "FAIL: expected exit_code=0, got $EXIT_CODE"
+            exit 1
+          fi
+          if [ "$TOTAL" -lt "2" ]; then
+            echo "FAIL: expected at least 2 attempts, got $TOTAL"
+            exit 1
+          fi
+          echo "PASS"

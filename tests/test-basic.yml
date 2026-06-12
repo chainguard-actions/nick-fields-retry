@@ -1,0 +1,30 @@
+name: Test basic retry usage
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - id: action
+        uses: .
+        with:
+          command: echo "hello world"
+          max_attempts: 3
+          retry_wait_seconds: 1
+      - name: Assert total_attempts output
+        env:
+          TOTAL: ${{ steps.action.outputs.total_attempts }}
+          EXIT_CODE: ${{ steps.action.outputs.exit_code }}
+        run: |
+          echo "total_attempts: $TOTAL"
+          echo "exit_code: $EXIT_CODE"
+          if [ "$TOTAL" != "1" ]; then
+            echo "FAIL: expected total_attempts=1, got $TOTAL"
+            exit 1
+          fi
+          if [ "$EXIT_CODE" != "0" ]; then
+            echo "FAIL: expected exit_code=0, got $EXIT_CODE"
+            exit 1
+          fi
+          echo "PASS"
