@@ -1,0 +1,54 @@
+name: Test on_retry_command - cleanup command runs before retry
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Initialize retry log file
+        run: |
+          echo "0" > /tmp/retry_attempt.txt
+          rm -f /tmp/retry_cleanup_ran.txt
+      - id: action
+        uses: .
+        with:
+          max_attempts: 3
+          timeout_seconds: 30
+          retry_wait_seconds: 1
+          on_retry_command: echo "cleanup ran" >> /tmp/retry_cleanup_ran.txt
+          command: |
+            count=$(cat /tmp/retry_attempt.txt)
+            count=$((count + 1))
+            echo "$count" > /tmp/retry_attempt.txt
+            if [ "$count" -lt 3 ]; then
+              exit 1
+            fi
+            echo "Succeeded on attempt $count"
+      - name: Assert on_retry_command ran and action succeeded
+        env:
+          TOTAL_ATTEMPTS: ${{ steps.action.outputs.total_attempts }}
+          EXIT_CODE: ${{ steps.action.outputs.exit_code }}
+        run: |
+          echo "total_attempts: $TOTAL_ATTEMPTS"
+          echo "exit_code: $EXIT_CODE"
+          if [ "$TOTAL_ATTEMPTS" != "3" ]; then
+            echo "FAIL: expected total_attempts=3, got '$TOTAL_ATTEMPTS'"
+            exit 1
+          fi
+          if [ "$EXIT_CODE" != "0" ]; then
+            echo "FAIL: expected exit_code=0, got '$EXIT_CODE'"
+            exit 1
+          fi
+          # on_retry_command should have run twice (before attempt 2 and 3)
+          if [ ! -f /tmp/retry_cleanup_ran.txt ]; then
+            echo "FAIL: on_retry_command never ran (file not found)"
+            exit 1
+          fi
+          CLEANUP_COUNT=$(wc -l < /tmp/retry_cleanup_ran.txt)
+          echo "cleanup ran $CLEANUP_COUNT times"
+          if [ "$CLEANUP_COUNT" -lt 1 ]; then
+            echo "FAIL: expected on_retry_command to run at least once"
+            exit 1
+          fi
+          echo "PASS"

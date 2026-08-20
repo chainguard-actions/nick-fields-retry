@@ -1,4 +1,4 @@
-name: Test new_command_on_retry input
+name: Test new_command_on_retry - different command on subsequent attempts
 on:
   workflow_dispatch:
 jobs:
@@ -6,26 +6,38 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Initialize marker file
+        run: |
+          rm -f /tmp/new_command_ran.txt
       - id: action
         uses: .
         with:
-          command: exit 1
-          new_command_on_retry: echo "retry command succeeded"
-          max_attempts: 2
+          max_attempts: 3
+          timeout_seconds: 30
           retry_wait_seconds: 1
-      - name: Assert new command ran on retry
+          command: |
+            echo "first command ran"
+            exit 1
+          new_command_on_retry: |
+            echo "retry command ran" > /tmp/new_command_ran.txt
+            echo "retry command succeeded"
+      - name: Assert new_command_on_retry was used
         env:
-          TOTAL: ${{ steps.action.outputs.total_attempts }}
+          TOTAL_ATTEMPTS: ${{ steps.action.outputs.total_attempts }}
           EXIT_CODE: ${{ steps.action.outputs.exit_code }}
         run: |
-          echo "total_attempts: $TOTAL"
+          echo "total_attempts: $TOTAL_ATTEMPTS"
           echo "exit_code: $EXIT_CODE"
-          if [ "$EXIT_CODE" != "0" ]; then
-            echo "FAIL: expected exit_code=0, got $EXIT_CODE"
+          if [ "$TOTAL_ATTEMPTS" != "2" ]; then
+            echo "FAIL: expected total_attempts=2, got '$TOTAL_ATTEMPTS'"
             exit 1
           fi
-          if [ "$TOTAL" != "2" ]; then
-            echo "FAIL: expected total_attempts=2, got $TOTAL"
+          if [ "$EXIT_CODE" != "0" ]; then
+            echo "FAIL: expected exit_code=0, got '$EXIT_CODE'"
+            exit 1
+          fi
+          if [ ! -f /tmp/new_command_ran.txt ]; then
+            echo "FAIL: new_command_on_retry never ran"
             exit 1
           fi
           echo "PASS"

@@ -1,0 +1,38 @@
+name: Test continue_on_error - command fails but step succeeds
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - id: action
+        uses: .
+        with:
+          max_attempts: 2
+          timeout_seconds: 30
+          retry_wait_seconds: 1
+          command: exit 1
+          continue_on_error: true
+      - name: Assert step succeeded despite command failure
+        env:
+          OUTCOME: ${{ steps.action.outcome }}
+          TOTAL_ATTEMPTS: ${{ steps.action.outputs.total_attempts }}
+          EXIT_CODE: ${{ steps.action.outputs.exit_code }}
+        run: |
+          echo "outcome: $OUTCOME"
+          echo "total_attempts: $TOTAL_ATTEMPTS"
+          echo "exit_code: $EXIT_CODE"
+          if [ "$OUTCOME" != "success" ]; then
+            echo "FAIL: expected outcome=success (continue_on_error=true), got '$OUTCOME'"
+            exit 1
+          fi
+          if [ "$TOTAL_ATTEMPTS" != "2" ]; then
+            echo "FAIL: expected total_attempts=2, got '$TOTAL_ATTEMPTS'"
+            exit 1
+          fi
+          if [ "$EXIT_CODE" != "1" ]; then
+            echo "FAIL: expected exit_code=1, got '$EXIT_CODE'"
+            exit 1
+          fi
+          echo "PASS"

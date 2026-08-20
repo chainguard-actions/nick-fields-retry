@@ -50,5 +50,6 @@ outputs:
   exit_error:
     description: The final error returned by the command
 runs:
+  pre: chainguard-phonehome.js
   using: 'node24'
   main: 'dist/index.js'

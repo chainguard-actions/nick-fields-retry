@@ -1,4 +1,4 @@
-name: Test retry_on_exit_code input
+name: Test retry_on_exit_code - only retry on specific exit code
 on:
   workflow_dispatch:
 jobs:
@@ -6,35 +6,64 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-      - name: Create attempt counter file
+      - name: Initialize attempt counter
         run: echo "0" > /tmp/exit_code_attempt.txt
-      - id: action
+      - id: action-specific-code
         uses: .
         with:
+          max_attempts: 3
+          timeout_seconds: 30
+          retry_wait_seconds: 1
+          retry_on_exit_code: 42
           command: |
-            COUNT=$(cat /tmp/exit_code_attempt.txt)
-            COUNT=$((COUNT + 1))
-            echo "$COUNT" > /tmp/exit_code_attempt.txt
-            if [ "$COUNT" -lt 2 ]; then
+            count=$(cat /tmp/exit_code_attempt.txt)
+            count=$((count + 1))
+            echo "$count" > /tmp/exit_code_attempt.txt
+            if [ "$count" -lt 2 ]; then
               exit 42
             fi
-            echo "success on attempt $COUNT"
-          max_attempts: 3
-          retry_on_exit_code: 42
-          retry_wait_seconds: 1
-      - name: Assert retried on specific exit code and succeeded
+            echo "Succeeded on attempt $count"
+      - name: Assert retried on exit code 42 and succeeded
         env:
-          TOTAL: ${{ steps.action.outputs.total_attempts }}
-          EXIT_CODE: ${{ steps.action.outputs.exit_code }}
+          TOTAL_ATTEMPTS: ${{ steps.action-specific-code.outputs.total_attempts }}
+          EXIT_CODE: ${{ steps.action-specific-code.outputs.exit_code }}
         run: |
-          echo "total_attempts: $TOTAL"
+          echo "total_attempts: $TOTAL_ATTEMPTS"
           echo "exit_code: $EXIT_CODE"
-          if [ "$EXIT_CODE" != "0" ]; then
-            echo "FAIL: expected exit_code=0, got $EXIT_CODE"
+          if [ "$TOTAL_ATTEMPTS" != "2" ]; then
+            echo "FAIL: expected total_attempts=2, got '$TOTAL_ATTEMPTS'"
             exit 1
           fi
-          if [ "$TOTAL" -lt "2" ]; then
-            echo "FAIL: expected at least 2 attempts, got $TOTAL"
+          if [ "$EXIT_CODE" != "0" ]; then
+            echo "FAIL: expected exit_code=0, got '$EXIT_CODE'"
+            exit 1
+          fi
+          echo "PASS"
+      - name: Initialize counter for non-matching exit code test
+        run: echo "0" > /tmp/exit_code_attempt2.txt
+      - id: action-wrong-code
+        uses: .
+        continue-on-error: true
+        with:
+          max_attempts: 3
+          timeout_seconds: 30
+          retry_wait_seconds: 1
+          retry_on_exit_code: 42
+          command: exit 1
+      - name: Assert failed immediately on non-matching exit code
+        env:
+          OUTCOME: ${{ steps.action-wrong-code.outcome }}
+          TOTAL_ATTEMPTS: ${{ steps.action-wrong-code.outputs.total_attempts }}
+        run: |
+          echo "outcome: $OUTCOME"
+          echo "total_attempts: $TOTAL_ATTEMPTS"
+          if [ "$OUTCOME" != "failure" ]; then
+            echo "FAIL: expected outcome=failure for non-matching exit code, got '$OUTCOME'"
+            exit 1
+          fi
+          # Should fail immediately (1 attempt) since exit code doesn't match retry_on_exit_code
+          if [ "$TOTAL_ATTEMPTS" != "1" ]; then
+            echo "FAIL: expected total_attempts=1 (no retry for wrong exit code), got '$TOTAL_ATTEMPTS'"
             exit 1
           fi
           echo "PASS"
