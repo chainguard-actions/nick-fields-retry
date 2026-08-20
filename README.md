@@ -8,7 +8,7 @@ Hardened by [Chainguard](https://www.chainguard.dev) from the upstream action at
 
 | Version | Tag | Upstream commit |
 |---------|-----|-----------------|
-| v4.0.0 | [`v4.0.0`](https://github.com/chainguard-actions/nick-fields-retry/tree/v4.0.0) | — |
+| v4.0.0 | [`v4.0.0`](https://github.com/chainguard-actions/nick-fields-retry/tree/v4.0.0) | [`ad98453`](https://github.com/nick-fields/retry/commit/ad984534de44a9489a53aefd81eb77f87c70dc60) |
 
 ## Privacy
 
