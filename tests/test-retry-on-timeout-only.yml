@@ -1,0 +1,26 @@
+name: Test retry_on timeout does not retry errors
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - id: action
+        uses: .
+        with:
+          timeout_seconds: 30
+          max_attempts: 3
+          retry_wait_seconds: 1
+          retry_on: timeout
+          continue_on_error: true
+          command: exit 4
+      - name: Assert no retry
+        env:
+          ATTEMPTS: ${{ steps.action.outputs.total_attempts }}
+          CODE: ${{ steps.action.outputs.exit_code }}
+        run: |
+          echo "attempts=$ATTEMPTS code=$CODE"
+          [ "$ATTEMPTS" = "1" ] || { echo "FAIL: expected 1 attempt"; exit 1; }
+          [ "$CODE" = "4" ] || { echo "FAIL: expected exit_code 4"; exit 1; }
+          echo "PASS"

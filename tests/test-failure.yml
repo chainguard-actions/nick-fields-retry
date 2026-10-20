@@ -1,0 +1,27 @@
+name: Test step fails when all attempts fail
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - id: action
+        uses: .
+        continue-on-error: true
+        with:
+          timeout_seconds: 30
+          max_attempts: 2
+          retry_wait_seconds: 1
+          command: exit 7
+      - name: Assert step failed
+        env:
+          OUTCOME: ${{ steps.action.outcome }}
+          ATTEMPTS: ${{ steps.action.outputs.total_attempts }}
+          CODE: ${{ steps.action.outputs.exit_code }}
+        run: |
+          echo "outcome=$OUTCOME attempts=$ATTEMPTS code=$CODE"
+          [ "$OUTCOME" = "failure" ] || { echo "FAIL: expected failure outcome"; exit 1; }
+          [ "$ATTEMPTS" = "2" ] || { echo "FAIL: expected 2 attempts"; exit 1; }
+          [ "$CODE" = "7" ] || { echo "FAIL: expected exit_code 7"; exit 1; }
+          echo "PASS"

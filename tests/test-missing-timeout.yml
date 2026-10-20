@@ -1,0 +1,25 @@
+name: Test missing timeout input validation
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - id: action
+        uses: .
+        continue-on-error: true
+        with:
+          max_attempts: 2
+          command: echo should-not-run
+      - name: Assert validation failure
+        env:
+          OUTCOME: ${{ steps.action.outcome }}
+          ERR: ${{ steps.action.outputs.exit_error }}
+          CODE: ${{ steps.action.outputs.exit_code }}
+        run: |
+          echo "outcome=$OUTCOME code=$CODE err=$ERR"
+          [ "$OUTCOME" = "failure" ] || { echo "FAIL: expected failure"; exit 1; }
+          [ "$CODE" = "1" ] || { echo "FAIL: expected exit_code 1"; exit 1; }
+          echo "$ERR" | grep -q "Must specify either timeout_minutes or timeout_seconds" || { echo "FAIL: wrong error"; exit 1; }
+          echo "PASS"

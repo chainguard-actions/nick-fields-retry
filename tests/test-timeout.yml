@@ -1,0 +1,27 @@
+name: Test timeout
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - id: action
+        uses: .
+        with:
+          timeout_seconds: 2
+          max_attempts: 2
+          retry_wait_seconds: 1
+          continue_on_error: true
+          command: sleep 30
+      - name: Assert timed out
+        env:
+          ATTEMPTS: ${{ steps.action.outputs.total_attempts }}
+          CODE: ${{ steps.action.outputs.exit_code }}
+          ERR: ${{ steps.action.outputs.exit_error }}
+        run: |
+          echo "attempts=$ATTEMPTS code=$CODE err=$ERR"
+          [ "$ATTEMPTS" = "2" ] || { echo "FAIL: expected 2 attempts"; exit 1; }
+          [ "$CODE" = "1" ] || { echo "FAIL: expected exit_code 1"; exit 1; }
+          echo "$ERR" | grep -q "Timeout of 2000ms hit" || { echo "FAIL: expected timeout message"; exit 1; }
+          echo "PASS"

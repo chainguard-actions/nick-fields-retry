@@ -1,0 +1,27 @@
+name: Test basic success
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - id: action
+        uses: .
+        with:
+          timeout_seconds: 30
+          max_attempts: 3
+          retry_wait_seconds: 1
+          command: echo "hello from retry" > /tmp/retry-basic.txt
+      - name: Assert outputs
+        env:
+          ATTEMPTS: ${{ steps.action.outputs.total_attempts }}
+          CODE: ${{ steps.action.outputs.exit_code }}
+          ERR: ${{ steps.action.outputs.exit_error }}
+        run: |
+          echo "attempts=$ATTEMPTS code=$CODE err=$ERR"
+          [ "$ATTEMPTS" = "1" ] || { echo "FAIL: expected 1 attempt"; exit 1; }
+          [ "$CODE" = "0" ] || { echo "FAIL: expected exit_code 0"; exit 1; }
+          [ -z "$ERR" ] || { echo "FAIL: expected empty exit_error"; exit 1; }
+          grep -q "hello from retry" /tmp/retry-basic.txt || { echo "FAIL: command did not run"; exit 1; }
+          echo "PASS"

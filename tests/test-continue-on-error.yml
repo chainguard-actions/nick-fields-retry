@@ -1,0 +1,30 @@
+name: Test all attempts fail with continue_on_error
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - id: action
+        uses: .
+        with:
+          timeout_seconds: 30
+          max_attempts: 2
+          retry_wait_seconds: 1
+          continue_on_error: true
+          command: exit 3
+      - name: Assert outputs
+        env:
+          OUTCOME: ${{ steps.action.outcome }}
+          ATTEMPTS: ${{ steps.action.outputs.total_attempts }}
+          CODE: ${{ steps.action.outputs.exit_code }}
+          ERR: ${{ steps.action.outputs.exit_error }}
+        run: |
+          echo "outcome=$OUTCOME attempts=$ATTEMPTS code=$CODE err=$ERR"
+          [ "$OUTCOME" = "success" ] || { echo "FAIL: step should succeed"; exit 1; }
+          [ "$ATTEMPTS" = "2" ] || { echo "FAIL: expected 2 attempts"; exit 1; }
+          [ "$CODE" = "3" ] || { echo "FAIL: expected exit_code 3"; exit 1; }
+          echo "$ERR" | grep -q "Final attempt failed" || { echo "FAIL: exit_error missing 'Final attempt failed'"; exit 1; }
+          echo "$ERR" | grep -q "exited with error code 3" || { echo "FAIL: exit_error missing code"; exit 1; }
+          echo "PASS"

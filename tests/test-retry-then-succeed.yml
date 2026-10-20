@@ -1,0 +1,31 @@
+name: Test retry then succeed
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - run: rm -f /tmp/retry-counter
+      - id: action
+        uses: .
+        with:
+          timeout_seconds: 30
+          max_attempts: 4
+          retry_wait_seconds: 1
+          command: |
+            n=$(cat /tmp/retry-counter 2>/dev/null || echo 0)
+            n=$((n+1))
+            echo $n > /tmp/retry-counter
+            echo "attempt $n"
+            [ "$n" -ge 3 ]
+      - name: Assert outputs
+        env:
+          ATTEMPTS: ${{ steps.action.outputs.total_attempts }}
+          CODE: ${{ steps.action.outputs.exit_code }}
+        run: |
+          echo "attempts=$ATTEMPTS code=$CODE counter=$(cat /tmp/retry-counter)"
+          [ "$ATTEMPTS" = "3" ] || { echo "FAIL: expected 3 attempts"; exit 1; }
+          [ "$CODE" = "0" ] || { echo "FAIL: expected exit_code 0"; exit 1; }
+          [ "$(cat /tmp/retry-counter)" = "3" ] || { echo "FAIL: counter should be 3"; exit 1; }
+          echo "PASS"

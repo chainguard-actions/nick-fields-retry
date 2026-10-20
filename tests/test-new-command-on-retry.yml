@@ -1,0 +1,27 @@
+name: Test new_command_on_retry
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - run: rm -f /tmp/new-cmd-marker
+      - id: action
+        uses: .
+        with:
+          timeout_seconds: 30
+          max_attempts: 3
+          retry_wait_seconds: 1
+          command: exit 1
+          new_command_on_retry: echo ran > /tmp/new-cmd-marker
+      - name: Assert new command used
+        env:
+          ATTEMPTS: ${{ steps.action.outputs.total_attempts }}
+          CODE: ${{ steps.action.outputs.exit_code }}
+        run: |
+          echo "attempts=$ATTEMPTS code=$CODE"
+          [ "$ATTEMPTS" = "2" ] || { echo "FAIL: expected 2 attempts"; exit 1; }
+          [ "$CODE" = "0" ] || { echo "FAIL: expected exit_code 0"; exit 1; }
+          [ -f /tmp/new-cmd-marker ] || { echo "FAIL: new command did not run"; exit 1; }
+          echo "PASS"

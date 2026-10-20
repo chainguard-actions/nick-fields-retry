@@ -1,0 +1,31 @@
+name: Test on_retry_command
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - run: rm -f /tmp/on-retry-log /tmp/on-retry-counter
+      - id: action
+        uses: .
+        with:
+          timeout_seconds: 30
+          max_attempts: 3
+          retry_wait_seconds: 1
+          on_retry_command: echo cleanup >> /tmp/on-retry-log
+          command: |
+            n=$(cat /tmp/on-retry-counter 2>/dev/null || echo 0)
+            n=$((n+1))
+            echo $n > /tmp/on-retry-counter
+            [ "$n" -ge 3 ]
+      - name: Assert on_retry_command ran before each retry
+        env:
+          ATTEMPTS: ${{ steps.action.outputs.total_attempts }}
+        run: |
+          echo "attempts=$ATTEMPTS"
+          cat /tmp/on-retry-log || true
+          [ "$ATTEMPTS" = "3" ] || { echo "FAIL: expected 3 attempts"; exit 1; }
+          LINES=$(grep -c cleanup /tmp/on-retry-log)
+          [ "$LINES" = "2" ] || { echo "FAIL: expected 2 cleanup runs, got $LINES"; exit 1; }
+          echo "PASS"

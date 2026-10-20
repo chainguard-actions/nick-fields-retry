@@ -1,0 +1,37 @@
+name: Test python shell
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Ensure python is available
+        run: |
+          if ! command -v python >/dev/null 2>&1; then
+            if command -v python3 >/dev/null 2>&1; then
+              sudo ln -sf "$(command -v python3)" /usr/local/bin/python || ln -sf "$(command -v python3)" /usr/local/bin/python
+            else
+              (sudo apt-get update && sudo apt-get install -y python3) || (apt-get update && apt-get install -y python3)
+              ln -sf "$(command -v python3)" /usr/local/bin/python 2>/dev/null || sudo ln -sf "$(command -v python3)" /usr/local/bin/python
+            fi
+          fi
+          python --version
+      - id: action
+        uses: .
+        with:
+          timeout_minutes: 1
+          max_attempts: 2
+          retry_wait_seconds: 1
+          shell: python
+          command: open('/tmp/py-marker.txt', 'w').write('from-python')
+      - name: Assert python ran
+        env:
+          ATTEMPTS: ${{ steps.action.outputs.total_attempts }}
+          CODE: ${{ steps.action.outputs.exit_code }}
+        run: |
+          echo "attempts=$ATTEMPTS code=$CODE"
+          [ "$ATTEMPTS" = "1" ] || { echo "FAIL: expected 1 attempt"; exit 1; }
+          [ "$CODE" = "0" ] || { echo "FAIL: expected exit_code 0"; exit 1; }
+          [ "$(cat /tmp/py-marker.txt)" = "from-python" ] || { echo "FAIL: marker missing"; exit 1; }
+          echo "PASS"
