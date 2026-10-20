@@ -1,0 +1,39 @@
+name: Test retry_on error
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Prepare counter
+        run: rm -f /tmp/retry-on-error-counter
+      - id: action
+        uses: .
+        with:
+          timeout_seconds: 30
+          max_attempts: 3
+          retry_wait_seconds: 1
+          retry_on: error
+          command: |
+            if [ ! -f /tmp/retry-on-error-counter ]; then
+              touch /tmp/retry-on-error-counter
+              exit 1
+            fi
+            echo "second attempt succeeds"
+      - name: Assert total attempts
+        env:
+          ACTUAL: ${{ steps.action.outputs.total_attempts }}
+          EXIT_CODE: ${{ steps.action.outputs.exit_code }}
+        run: |
+          echo "total_attempts: $ACTUAL"
+          echo "exit_code: $EXIT_CODE"
+          if [ "$ACTUAL" != "2" ]; then
+            echo "FAIL: expected 2 attempts"
+            exit 1
+          fi
+          if [ "$EXIT_CODE" != "0" ]; then
+            echo "FAIL: expected exit_code 0"
+            exit 1
+          fi
+          echo "PASS"

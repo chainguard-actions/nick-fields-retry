@@ -1,0 +1,43 @@
+name: Test on_retry_command
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Reset files
+        run: rm -f /tmp/onretry-counter /tmp/onretry-marker
+      - id: action
+        uses: .
+        with:
+          timeout_seconds: 30
+          max_attempts: 3
+          retry_wait_seconds: 1
+          on_retry_command: echo cleanup >> /tmp/onretry-marker
+          command: |
+            n=$(cat /tmp/onretry-counter 2>/dev/null || echo 0)
+            n=$((n+1))
+            echo "$n" > /tmp/onretry-counter
+            if [ "$n" -lt 2 ]; then exit 1; fi
+            echo ok
+      - name: Assert on_retry_command ran once
+        env:
+          ATTEMPTS: ${{ steps.action.outputs.total_attempts }}
+        run: |
+          echo "total_attempts: $ATTEMPTS"
+          if [ "$ATTEMPTS" != "2" ]; then
+            echo "FAIL: expected total_attempts 2"
+            exit 1
+          fi
+          if [ ! -f /tmp/onretry-marker ]; then
+            echo "FAIL: on_retry_command did not run"
+            exit 1
+          fi
+          LINES=$(wc -l < /tmp/onretry-marker | tr -d ' ')
+          echo "marker lines: $LINES"
+          if [ "$LINES" != "1" ]; then
+            echo "FAIL: expected on_retry_command to run once"
+            exit 1
+          fi
+          echo "PASS"

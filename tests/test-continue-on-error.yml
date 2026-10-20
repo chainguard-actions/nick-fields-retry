@@ -1,0 +1,44 @@
+name: Test continue_on_error with failing command
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - id: action
+        uses: .
+        with:
+          timeout_seconds: 30
+          max_attempts: 2
+          retry_wait_seconds: 1
+          continue_on_error: true
+          command: exit 4
+      - name: Assert outputs
+        env:
+          ATTEMPTS: ${{ steps.action.outputs.total_attempts }}
+          EXIT_CODE: ${{ steps.action.outputs.exit_code }}
+          EXIT_ERROR: ${{ steps.action.outputs.exit_error }}
+          OUTCOME: ${{ steps.action.outcome }}
+        run: |
+          echo "outcome: $OUTCOME"
+          echo "total_attempts: $ATTEMPTS"
+          echo "exit_code: $EXIT_CODE"
+          echo "exit_error: $EXIT_ERROR"
+          if [ "$OUTCOME" != "success" ]; then
+            echo "FAIL: expected step outcome success"
+            exit 1
+          fi
+          if [ "$ATTEMPTS" != "2" ]; then
+            echo "FAIL: expected total_attempts 2"
+            exit 1
+          fi
+          if [ "$EXIT_CODE" != "4" ]; then
+            echo "FAIL: expected exit_code 4"
+            exit 1
+          fi
+          case "$EXIT_ERROR" in
+            *"Final attempt failed"*) ;;
+            *) echo "FAIL: exit_error missing 'Final attempt failed'"; exit 1 ;;
+          esac
+          echo "PASS"

@@ -1,0 +1,38 @@
+name: Test timeout_seconds
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - id: action
+        uses: .
+        with:
+          timeout_seconds: 2
+          max_attempts: 2
+          retry_wait_seconds: 1
+          continue_on_error: true
+          command: sleep 20
+      - name: Assert timeout reported
+        env:
+          ATTEMPTS: ${{ steps.action.outputs.total_attempts }}
+          EXIT_CODE: ${{ steps.action.outputs.exit_code }}
+          EXIT_ERROR: ${{ steps.action.outputs.exit_error }}
+        run: |
+          echo "total_attempts: $ATTEMPTS"
+          echo "exit_code: $EXIT_CODE"
+          echo "exit_error: $EXIT_ERROR"
+          if [ "$ATTEMPTS" != "2" ]; then
+            echo "FAIL: expected total_attempts 2"
+            exit 1
+          fi
+          case "$EXIT_ERROR" in
+            *Timeout*) ;;
+            *) echo "FAIL: expected exit_error to mention Timeout"; exit 1 ;;
+          esac
+          if [ "$EXIT_CODE" = "0" ] || [ -z "$EXIT_CODE" ]; then
+            echo "FAIL: expected non-zero exit_code"
+            exit 1
+          fi
+          echo "PASS"

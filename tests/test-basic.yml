@@ -1,0 +1,30 @@
+name: Test basic successful command
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - id: action
+        uses: .
+        with:
+          timeout_minutes: 1
+          max_attempts: 3
+          command: echo "hello from retry"
+      - name: Assert outputs
+        env:
+          ATTEMPTS: ${{ steps.action.outputs.total_attempts }}
+          EXIT_CODE: ${{ steps.action.outputs.exit_code }}
+        run: |
+          echo "total_attempts: $ATTEMPTS"
+          echo "exit_code: $EXIT_CODE"
+          if [ "$ATTEMPTS" != "1" ]; then
+            echo "FAIL: expected total_attempts 1"
+            exit 1
+          fi
+          if [ "$EXIT_CODE" != "0" ]; then
+            echo "FAIL: expected exit_code 0"
+            exit 1
+          fi
+          echo "PASS"
